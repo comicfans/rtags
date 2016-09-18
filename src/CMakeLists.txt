@@ -80,11 +80,24 @@ set(RCT_NO_LIBRARY 1)
 # doesn't need to be set in this file again.
 include(rct/rct.cmake)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wstrict-aliasing=2 -Wcast-qual -fPIC")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wstrict-aliasing=2 -Wcast-qual -fPIC")
+if(NOT MSVC)
+    set(ADD_FLAGS "-Wstrict-aliasing=2 -Wcast-qual -fPIC")
+else()
+    set(ADD_FLAGS " /wd4010 /wd4011 /wd4012")
+endif()
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ADD_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADD_FLAGS}")
+
 if (NOT CYGWIN)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstack-protector-all -Wstack-protector")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-all -Wstack-protector")
+    if(NOT MSVC)
+        set(ADD_FLAGS " -fstack-protector-all -Wstack-protector")
+    else()
+        # /RTCs and o2 is incompatible
+        #set(ADD_FLAGS " /RTCs")
+    endif()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ADD_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADD_FLAGS}")
 endif ()
 
 if (CMAKE_BUILD_TYPE MATCHES "Debug")
@@ -103,6 +116,8 @@ if (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
 endif ()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 
 set(RTAGS_SOURCES
     AST.cpp
@@ -176,8 +191,13 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     set_source_files_properties(AST.cpp PROPERTIES
         COMPILE_FLAGS "-Wno-unused-parameter -Wno-unused-variable -ftemplate-depth=2000 -Wno-cast-qual")
 else ()
-    set_source_files_properties(AST.cpp PROPERTIES
-        COMPILE_FLAGS "-Wno-unused-but-set-parameter -Wno-unused-parameter -Wno-unused-variable -ftemplate-depth=2000 -Wno-cast-qual")
+    if(NOT MSVC)
+        set_source_files_properties(AST.cpp PROPERTIES
+            COMPILE_FLAGS "-Wno-unused-but-set-parameter -Wno-unused-parameter -Wno-unused-variable -ftemplate-depth=2000 -Wno-cast-qual")
+    else()
+        set_source_files_properties(AST.cpp PROPERTIES
+            COMPILE_FLAGS "")
+    endif()
 endif()
 
 # RCT_LIBRARIES and stdc++ library must be at the end
