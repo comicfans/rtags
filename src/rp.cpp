@@ -15,7 +15,6 @@
 
 #define RTAGS_SINGLE_THREAD
 #include <signal.h>
-#include <syslog.h>
 
 #include "ClangIndexer.h"
 #include "Project.h"

@@ -18,8 +18,6 @@
 
 #include <assert.h>
 #include <fcntl.h>
-#include <sys/file.h>
-#include <sys/mman.h>
 #include <sys/stat.h>
 #include <functional>
 #include <limits>
