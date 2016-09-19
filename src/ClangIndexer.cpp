@@ -16,7 +16,6 @@
 #define RTAGS_SINGLE_THREAD
 #include "ClangIndexer.h"
 
-#include <unistd.h>
 #if CINDEX_VERSION >= CINDEX_VERSION_ENCODE(0, 25)
 #include <clang-c/Documentation.h>
 #endif
@@ -140,9 +139,12 @@ bool ClangIndexer::exec(const String &data)
 
     if (niceValue != INT_MIN) {
         errno = 0;
+        //TODO nice
+        /* 
         if (nice(niceValue) == -1) {
             error() << "Failed to nice rp" << Rct::strerror();
         }
+        */
     }
 
     if (mSourceFile.isEmpty()) {

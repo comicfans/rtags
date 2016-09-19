@@ -25,6 +25,8 @@
 #include "Location.h"
 #include "rct/Serializer.h"
 
+#include "rct/Win32Helper.h"
+
 template <typename T> inline static int compare(const T &l, const T &r)
 {
     if (l < r)
@@ -78,7 +80,11 @@ public:
     };
     bool load(const Path &path, uint32_t options, String *error = 0)
     {
+#ifndef _WINDOWS
         eintrwrap(mFD, open(path.constData(), O_RDONLY));
+#else
+        eintrwrap(mFD, _open(path.constData(), _O_RDONLY));
+#endif
         if (mFD == -1) {
             if (error) {
                 *error = Rct::strerror();
@@ -267,9 +273,9 @@ public:
     }
 private:
     enum Mode {
-        Read = F_RDLCK,
-        Write = F_WRLCK,
-        Unlock = F_UNLCK
+        Read ,
+        Write ,
+        Unlock 
     };
     static bool lock(int fd, Mode mode)
     {

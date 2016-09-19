@@ -18,10 +18,9 @@
 
 #include <assert.h>
 #include <ctype.h>
-#include <getopt.h>
+#include "rct/rct/Win32Helper.h"
 #include <typeinfo>
 #include <utility>
-#include <unistd.h>
 
 #include <clang/Basic/Version.h>
 #include <clang-c/Index.h>

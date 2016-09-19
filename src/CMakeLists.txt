@@ -4,6 +4,10 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 include(ExternalProject)
 
+if(MSVC)
+    add_definitions("/DNOMINMAX")    
+endif()
+
 if (RTAGS_BUILD_CLANG)
     if (RTAGS_NO_INSTALL)
         set(CLANG_INSTALL_PATH ${CMAKE_CURRENT_BINARY_DIR}/llvmclang-prefix/install)
