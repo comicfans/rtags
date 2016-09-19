@@ -508,7 +508,7 @@ std::shared_ptr<TranslationUnit> TranslationUnit::create(const Path &sourceFile,
                                                  translationUnitFlags.cast<unsigned int>(), &ret->unit);
         if (error != CXError_Crashed)
             break;
-        usleep(100000);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100000));
     }
 #else
     ret->unit = clang_parseTranslationUnit(ret->index, sourceFile.constData(),

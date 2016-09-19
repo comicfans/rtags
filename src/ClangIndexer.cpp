@@ -170,7 +170,7 @@ bool ClangIndexer::exec(const String &data)
             error("Failed to connect to rdm on %s (%dms timeout)", socketFile.constData(), connectTimeout);
             return false;
         }
-        usleep(500 * 1000);
+        std::this_thread::sleep_for(std::chrono::milliseconds(500 * 1000));
     }
     // mLogFile = fopen(String::format("/tmp/%s", mSourceFile.fileName()).constData(), "w");
     mIndexDataMessage.setProject(mProject);
@@ -260,7 +260,7 @@ Location ClangIndexer::createLocation(const Path &sourceFile, unsigned int line,
             // during a git pull or something we'll give it a couple of chances.
             if (ok)
                 break;
-            usleep(50000);
+            std::this_thread::sleep_for(std::chrono::milliseconds(50000));
         }
         if (!ok)
             return Location();
