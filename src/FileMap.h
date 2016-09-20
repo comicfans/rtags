@@ -46,23 +46,41 @@ template <> inline int compare(const Location &l, const Location &r)
     return l.compare(r);
 }
 
+#ifdef _WINDOWS
+    typedef HANDLE FDType;
+#else
+    typedef int FDType;
+#endif
+
 template <typename Key, typename Value>
 class FileMap
 {
 public:
     FileMap()
-        : mPointer(0), mSize(0), mCount(0), mValuesOffset(0), mFD(-1), mOptions(0)
+        : mPointer(0), mSize(0), mCount(0), mValuesOffset(0), mFD(INVALID_FD) ,mOptions(0)
+#ifdef _WINDOWS
+          ,mFileMappingObj(INVALID_HANDLE_VALUE)
+#endif
     {}
 
     ~FileMap()
     {
         if (mFD != -1) {
             assert(mPointer);
+#ifndef _WINDOWS
             munmap(const_cast<char*>(mPointer), mSize);
+#else
+            UnmapViewOfFile(mPointer);
+            CloseHandle(mFileMappingObj);
+#endif
             if (!(mOptions & NoLock))
                 lock(mFD, Unlock);
             int ret;
+#ifndef _WINDOWS
             eintrwrap(ret, close(mFD));
+#else
+            CloseHandle(mFD);
+#endif
         }
     }
 
@@ -83,9 +101,9 @@ public:
 #ifndef _WINDOWS
         eintrwrap(mFD, open(path.constData(), O_RDONLY));
 #else
-        eintrwrap(mFD, _open(path.constData(), _O_RDONLY));
+        eintrwrap(mFD, CreateFile(path.constData(), GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL));
 #endif
-        if (mFD == -1) {
+        if (mFD == FDType(-1)) {
             if (error) {
                 *error = Rct::strerror();
                 *error << " " << __LINE__;
@@ -98,12 +116,18 @@ public:
                 *error << " " << __LINE__;
             }
 
+#ifndef _WINDOWS
             close(mFD);
-            mFD = -1;
+#else
+            CloseHandle(mFD);
+#endif
+            mFD = FDType(-1);
             return false;
         }
 
         struct stat st;
+
+#ifndef _WINDOWS
         if (fstat(mFD, &st)) {
             if (error) {
                 *error = Rct::strerror();
@@ -115,8 +139,16 @@ public:
             mFD = -1;
             return false;
         }
+#else
+        //ignore currently
+        DWORD sizeHigh;
+        DWORD sizeLow=GetFileSize(mFD,&sizeHigh);
+#endif
 
+
+#ifndef _WINDOWS
         const char *pointer = static_cast<const char*>(mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, mFD, 0));
+
         // error() << errno;//  << mPointer;
         if (pointer == MAP_FAILED) {
             if (error) {
@@ -129,7 +161,11 @@ public:
             mFD = -1;
             return false;
         }
+#else
+        mFileMappingObj = CreateFileMapping(mFD,NULL,PAGE_READONLY,0,0,NULL);
 
+        const char *pointer = MapViewOfFile(mFileMappingObj,FILE_MAP_READ,0,0,0,0,0);
+#endif
         mOptions = options;
         init(pointer, st.st_size);
         return true;
@@ -277,8 +313,9 @@ private:
         Write ,
         Unlock 
     };
-    static bool lock(int fd, Mode mode)
+    static bool lock(FDType fd, Mode mode)
     {
+#ifndef _WINDOWS
         struct flock fl;
         memset(&fl, 0, sizeof(fl));
         fl.l_type = mode;
@@ -287,6 +324,13 @@ private:
         int ret;
         eintrwrap(ret, fcntl(fd, F_SETLKW, &fl));
         return ret != -1;
+#else
+        if (mode==Lock) {
+            LockFile(fd,0,0,0,0);
+        }else{
+            UnlockFile(fd,0,0,0,0);
+        }
+#endif
     }
     const char *valuesSegment() const { return mPointer + mValuesOffset; }
     const char *keysSegment() const { return mPointer + (sizeof(uint32_t) * 2); }
@@ -311,7 +355,13 @@ private:
     uint32_t mSize;
     uint32_t mCount;
     uint32_t mValuesOffset;
-    int mFD;
+
+
+    FDType mFD;
+#ifdef _WINDOWS
+    HANDLE mFileMappingObj;
+#endif
+
     uint32_t mOptions;
 };
 
