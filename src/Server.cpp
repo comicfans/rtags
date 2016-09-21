@@ -16,7 +16,10 @@
 #include "Server.h"
 #include "TokensJob.h"
 
+#ifndef _WINDOWS
 #include <arpa/inet.h>
+#endif
+
 #include <clang/Basic/Version.h>
 #include <clang-c/Index.h>
 #include <stdio.h>

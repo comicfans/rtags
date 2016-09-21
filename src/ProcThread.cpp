@@ -60,7 +60,13 @@ void ProcThread::stop()
 
 struct ParseNode {
     char cmdLine[16384];
-    char cwd[PATH_MAX];
+    char cwd[
+#ifndef _WINDOWS
+		PATH_MAX
+#else
+		MAX_PATH
+#endif
+	];
     List<String> environ;
 
 };

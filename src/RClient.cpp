@@ -16,7 +16,10 @@
 #include "RClient.h"
 
 #include <stdio.h>
+#ifndef _WINDOWS
 #include <sys/ioctl.h>
+#else
+#endif
 
 #include "FileMap.h"
 #include "IndexMessage.h"
@@ -314,9 +317,13 @@ RClient::RClient()
       mLogLevel(LogLevel::Error), mTcpPort(0), mGuessFlags(false),
       mTerminalWidth(-1), mArgc(0), mArgv(0)
 {
+#ifndef _WINDOWS
     struct winsize w;
     ioctl(0, TIOCGWINSZ, &w);
     mTerminalWidth = w.ws_col;
+#else
+	mTerminalWidth = 0;
+#endif
     if (mTerminalWidth <= 0)
         mTerminalWidth = 1024;
 }
@@ -421,9 +428,13 @@ CommandLineParser::ParseStatus RClient::parse(int &argc, char **argv)
     Path logFile;
     Flags<LogFlag> logFlags = LogStderr;
 
+#ifndef _WINDOWS
     if (!isatty(STDOUT_FILENO)) {
         mQueryFlags |= QueryMessage::NoColor;
     }
+#else
+        mQueryFlags |= QueryMessage::NoColor;
+#endif
 
     std::function<CommandLineParser::ParseStatus(RClient::OptionType type)> cb;
     cb = [&](RClient::OptionType type) -> CommandLineParser::ParseStatus {
@@ -1155,7 +1166,13 @@ CommandLineParser::ParseStatus RClient::parse(int &argc, char **argv)
             addQuery(type == DumpFileMaps ? QueryMessage::DumpFileMaps : QueryMessage::Dependencies, encoded);
             break; }
         case Tokens: {
-            char path[PATH_MAX];
+            char path[
+#ifndef _WINDOWS
+				PATH_MAX
+#else
+				MAX_PATH
+#endif
+			];
             uint32_t from, to;
             if (sscanf(optarg, "%[^':']:%u-%u", path, &from, &to) != 3) {
                 if (sscanf(optarg, "%[^':']:%u-", path, &from) == 2) {

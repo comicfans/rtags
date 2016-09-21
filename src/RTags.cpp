@@ -15,9 +15,18 @@
 
 #include "RTags.h"
 
-#include <dirent.h>
+#include <direct.h>
 #include <fcntl.h>
+
+#ifndef _WINDOWS
 #include <fnmatch.h>
+#else
+#include <Shlwapi.h>
+#include "rct/Win32Helper.h"
+#endif
+
+
+
 #include <sys/types.h>
 #ifdef OS_FreeBSD
 #include <sys/sysctl.h>
@@ -137,7 +146,11 @@ Path findAncestor(Path path, const char *fn, Flags<FindAncestorFlag> flags = Fla
                     assert(buf[slash] == '/');
                     assert(l + slash + 1 < static_cast<int>(sizeof(buf)));
                     memcpy(buf + slash + 1, entry->d_name, l);
+#ifndef _WINDOWS
                     if (!fnmatch(fn, buf, 0)) {
+#else
+                    if (!PathMatchSpecA(buf,fn)) {
+#endif
                         ret = buf;
                         ret.truncate(slash + 1);
                         found = true;

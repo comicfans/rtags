@@ -16,11 +16,17 @@
 #ifndef Filter_h
 #define Filter_h
 
-#include <fnmatch.h>
 
 #include "rct/List.h"
 #include "rct/Path.h"
 #include "rct/String.h"
+
+#ifndef _WINDOWS
+#include <fnmatch.h>
+#else
+#include <windows.h>
+#include <shlwapi.h>
+#endif
 
 namespace Filter {
 enum Result {
@@ -35,7 +41,11 @@ static inline Result filter(const Path &path, const List<String> &filters = List
     const int size = filters.size();
     for (int i=0; i<size; ++i) {
         const String &filter = filters.at(i);
+#ifndef _WINDOWS
         if (!fnmatch(filter.constData(), path.constData(), 0) || path.contains(filter))
+#else
+        if (!PathMatchSpecA( path.constData(),filter.constData()) || path.contains(filter))
+#endif
             return Filtered;
     }
 

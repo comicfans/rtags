@@ -141,7 +141,13 @@ static Path findFileInPath(const Path &unresolved, const Path &cwd, const List<P
         bool ok;
         const Path p = Path::resolved(file, Path::RealPath, path, &ok);
         if (ok) {
-            if (!isWrapper(p.fileName()) && !access(p.constData(), R_OK | X_OK)) {
+            if (!isWrapper(p.fileName()) && !
+#ifndef _WINDOWS
+				access(p.constData(), R_OK | X_OK)) {
+#else
+				((_access(p.constData(), 4) && p.contains(".exe",String::CaseInsensitive))||
+				_access((p+".exe").constData(),4))) {
+#endif
                 debug() << "Found compiler" << p << "for" << unresolved;
                 return Path::resolved(file, Path::MakeAbsolute, path);
             }
@@ -348,16 +354,30 @@ static inline bool isCompiler(const Path &fullPath, const List<String> &environm
     if (ok)
         return ret;
 
-    char path[PATH_MAX];
+    char path[
+#ifndef _WINDOWS
+		PATH_MAX
+#else
+		MAX_PATH
+#endif
+	];
     strcpy(path, "/tmp/rtags-compiler-check-XXXXXX.c");
+#ifndef _WINDOWS
     const int fd = mkstemps(path, 2);
+#else
+
+	char* name=mktemp(path);
+
+	const int fd = open(name, _O_RDWR, _S_IREAD);
+
+#endif
     if (fd == -1) {
         error("Failed to make temporary file errno: %d", errno);
         return false;
     }
 
     const char *contents = "int foo() { return 0; }";
-    const ssize_t len = strlen(contents);
+    const size_t len = strlen(contents);
     if (write(fd, contents, len) != len) {
         error("Failed to write to temporary file errno: %d", errno);
         close(fd);

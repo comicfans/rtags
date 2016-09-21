@@ -27,6 +27,10 @@
 
 #include "rct/Win32Helper.h"
 
+#ifdef _WINDOWS
+#include <windows.h>
+#endif
+
 template <typename T> inline static int compare(const T &l, const T &r)
 {
     if (l < r)
@@ -52,6 +56,8 @@ template <> inline int compare(const Location &l, const Location &r)
     typedef int FDType;
 #endif
 
+#define INVALID_FD FDType(-1)
+
 template <typename Key, typename Value>
 class FileMap
 {
@@ -65,7 +71,7 @@ public:
 
     ~FileMap()
     {
-        if (mFD != -1) {
+        if (mFD != FDType(-1)) {
             assert(mPointer);
 #ifndef _WINDOWS
             munmap(const_cast<char*>(mPointer), mSize);
@@ -101,7 +107,7 @@ public:
 #ifndef _WINDOWS
         eintrwrap(mFD, open(path.constData(), O_RDONLY));
 #else
-        eintrwrap(mFD, CreateFile(path.constData(), GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL));
+        eintrwrap(mFD, CreateFileA(path.constData(), GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL));
 #endif
         if (mFD == FDType(-1)) {
             if (error) {
@@ -164,7 +170,7 @@ public:
 #else
         mFileMappingObj = CreateFileMapping(mFD,NULL,PAGE_READONLY,0,0,NULL);
 
-        const char *pointer = MapViewOfFile(mFileMappingObj,FILE_MAP_READ,0,0,0,0,0);
+        const char *pointer = reinterpret_cast<const char*>(MapViewOfFile(mFileMappingObj,FILE_MAP_READ,0,0,0));
 #endif
         mOptions = options;
         init(pointer, st.st_size);
@@ -277,32 +283,62 @@ public:
     }
     static size_t write(const Path &path, const Map<Key, Value> &map, uint32_t options)
     {
-        int fd = open(path.constData(), O_RDWR|O_CREAT, 0644);
-        if (fd == -1) {
+        FDType fd = 
+#ifndef _WINDOWS
+			open(path.constData(), O_RDWR|O_CREAT, 0644);
+#else
+        CreateFileA(path.constData(), GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
+#endif
+        if (fd == FDType(-1)) {
             if (!Path::mkdir(path.parentDir(), Path::Recursive))
                 return 0;
+#ifndef _WINDOWS
             fd = open(path.constData(), O_RDWR|O_CREAT, 0644);
-            if (fd == -1)
+#else
+			CreateFileA(path.constData(), GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
+#endif
+            if (fd == FDType(-1))
                 return 0;
         }
         if (!(options & NoLock) && !lock(fd, Write)) {
+#ifndef _WINDOWS
             ::close(fd);
+#else
+			CloseHandle(fd);
+#endif
             return 0;
         }
         const String data = encode(map);
-        bool ok = ::ftruncate(fd, data.size()) != -1;
+		bool ok =
+#ifndef _WINDOWS
+			::ftruncate(fd, data.size()) != -1;
+#else
+			SetEndOfFile(fd);
+#endif
         if (!ok) {
             if (!(options & NoLock))
                 lock(fd, Unlock);
+#ifndef _WINDOWS
             ::close(fd);
+#else
+			CloseHandle(fd);
+#endif
             return 0;
         }
 
+#ifndef _WINDOWS
         ok = ::write(fd, data.constData(), data.size()) == static_cast<ssize_t>(data.size());
+#else
+		ok = WriteFile(fd, data.constData(), data.size(), NULL, NULL);
+#endif
         if (!(options & NoLock))
             ok = lock(fd, Unlock) && ok;
 
-        ::close(fd);
+#ifndef _WINDOWS
+            ::close(fd);
+#else
+			CloseHandle(fd);
+#endif
         if (!ok)
             unlink(path.constData());
         return ok ? data.size() : 0;
@@ -325,10 +361,10 @@ private:
         eintrwrap(ret, fcntl(fd, F_SETLKW, &fl));
         return ret != -1;
 #else
-        if (mode==Lock) {
-            LockFile(fd,0,0,0,0);
-        }else{
+        if (mode==Unlock) {
             UnlockFile(fd,0,0,0,0);
+        }else{
+            LockFile(fd,0,0,0,0);
         }
 #endif
     }

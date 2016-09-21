@@ -70,7 +70,13 @@ int FindFileJob::execute()
         cs = String::CaseInsensitive;
 
     String out;
-    out.reserve(PATH_MAX);
+    out.reserve(
+#ifndef _WINDOWS
+		PATH_MAX
+#else
+		_MAX_PATH
+#endif
+	);
     const bool absolutePath = queryFlags() & QueryMessage::AbsolutePath;
     if (absolutePath)
         out.append(srcRoot);
